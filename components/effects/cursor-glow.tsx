@@ -1,52 +1,165 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useSpring,
+} from "framer-motion";
 
 export function CursorGlow() {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isVisible, setIsVisible] = useState(false);
+  const x = useMotionValue(-100);
+  const y = useMotionValue(-100);
+
+  const springX = useSpring(x, {
+    stiffness: 500,
+    damping: 35,
+    mass: 0.25,
+  });
+
+  const springY = useSpring(y, {
+    stiffness: 500,
+    damping: 35,
+    mass: 0.25,
+  });
+
+  const [visible, setVisible] = useState(false);
+  const [hovering, setHovering] = useState(false);
 
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia(
+    const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    const isTouchDevice = "ontouchstart" in window;
 
-    if (prefersReducedMotion || isTouchDevice) return;
+    const touch =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY });
-      setIsVisible(true);
+    if (reducedMotion || touch) return;
+
+    document.documentElement.classList.add("custom-cursor");
+
+    const move = (e: MouseEvent) => {
+      x.set(e.clientX);
+      y.set(e.clientY);
+
+      if (!visible) setVisible(true);
     };
 
-    const handleMouseLeave = () => setIsVisible(false);
+    const enterWindow = () => setVisible(true);
 
-    window.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseleave", handleMouseLeave);
+    const leaveWindow = () => setVisible(false);
+
+    const enterInteractive = () => setHovering(true);
+
+    const leaveInteractive = () => setHovering(false);
+
+    const selectors = [
+      "a",
+      "button",
+      "input",
+      "textarea",
+      "select",
+      "label",
+      "[role='button']",
+      "[tabindex]",
+      ".cursor-hover",
+    ];
+
+    const elements = document.querySelectorAll(selectors.join(","));
+
+    elements.forEach((el) => {
+      el.addEventListener("mouseenter", enterInteractive);
+      el.addEventListener("mouseleave", leaveInteractive);
+    });
+
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseenter", enterWindow);
+    window.addEventListener("mouseleave", leaveWindow);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, []);
+      document.documentElement.classList.remove("custom-cursor");
 
-  if (!isVisible) return null;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseenter", enterWindow);
+      window.removeEventListener("mouseleave", leaveWindow);
+
+      elements.forEach((el) => {
+        el.removeEventListener("mouseenter", enterInteractive);
+        el.removeEventListener("mouseleave", leaveInteractive);
+      });
+    };
+  }, [visible, x, y]);
 
   return (
-    <>
-      <motion.div
-        className="pointer-events-none fixed z-[9999] hidden h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-asme-cyan/30 md:block"
-        animate={{ x: position.x, y: position.y }}
-        transition={{ type: "spring", stiffness: 500, damping: 28, mass: 0.5 }}
-        aria-hidden="true"
-      />
-      <motion.div
-        className="pointer-events-none fixed z-[9998] hidden h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-asme-blue/5 blur-3xl md:block"
-        animate={{ x: position.x, y: position.y }}
-        transition={{ type: "spring", stiffness: 150, damping: 20, mass: 0.8 }}
-        aria-hidden="true"
-      />
-    </>
+    <AnimatePresence>
+      {visible && (
+        <>
+          {/* Glow Ring */}
+          <motion.div
+            className="pointer-events-none fixed left-0 top-0 z-[9999]"
+            style={{
+              x: springX,
+              y: springY,
+            }}
+            animate={{
+              width: hovering ? 60 : 34,
+              height: hovering ? 60 : 34,
+              scale: hovering ? 1.2 : 1,
+              opacity: 1,
+            }}
+            initial={{
+              opacity: 0,
+              scale: 0.5,
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.5,
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 280,
+              damping: 22,
+            }}
+          >
+            <div
+              className="
+                h-full
+                w-full
+                -translate-x-1/2
+                -translate-y-1/2
+                rounded-full
+                border
+                border-cyan-400/70
+                bg-cyan-400/5
+                backdrop-blur-xl
+                shadow-[0_0_40px_rgba(34,211,238,0.45)]
+              "
+            />
+          </motion.div>
+
+          {/* Pointer */}
+          <motion.div
+            className="pointer-events-none fixed left-0 top-0 z-[10000]"
+            style={{
+              x,
+              y,
+            }}
+          >
+            <div
+              className="
+                h-3
+                w-3
+                -translate-x-1/2
+                -translate-y-1/2
+                rounded-full
+                bg-cyan-400
+                shadow-[0_0_20px_rgba(34,211,238,1)]
+              "
+            />
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
