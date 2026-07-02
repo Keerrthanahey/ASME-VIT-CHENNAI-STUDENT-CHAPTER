@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ASME VIT Chennai Student Chapter
+
+Official digital platform for the ASME VIT Chennai Student Chapter — a premium, production-ready web application built with modern engineering-inspired design.
+
+## Tech Stack
+
+- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS, Framer Motion, ShadCN UI
+- **Backend:** Firebase (Auth, Firestore, Storage)
+- **Deployment:** Vercel
+
+## Features
+
+- Premium dark/light theme with glassmorphism and engineering aesthetics
+- Landing page with hero 3D scene, animated statistics, and sections
+- Event management with registration, bookmarks, and calendar integration
+- Workshops, projects showcase, and technical resources library
+- Photo gallery with masonry layout and lightbox
+- Achievements and core team profiles
+- Member portal with digital membership card and QR attendance
+- Admin dashboard with analytics charts
+- Engineering tools: calculator, unit converter, formula library
+- Certificate verification, global search, and FAQ chatbot
+- PWA support and SEO optimization
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Copy environment variables
+cp .env.example .env.local
+# Add your Firebase credentials to .env.local
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Firebase Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+2. Enable Authentication (Google + Email/Password)
+3. Create a Firestore database
+4. Copy your config values to `.env.local`
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Deploy to Vercel:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Connect your repository to Vercel and add environment variables from `.env.example`.
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/           # Next.js App Router pages
+components/    # Reusable UI and layout components
+features/      # Feature-specific modules
+hooks/         # Custom React hooks
+lib/           # Utilities, constants, and data
+firebase/      # Firebase configuration
+types/         # TypeScript type definitions
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+© ASME VIT Chennai Student Chapter. All rights reserved.
