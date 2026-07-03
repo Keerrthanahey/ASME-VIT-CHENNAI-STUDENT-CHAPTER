@@ -1,0 +1,10 @@
+from io import BytesIO
+
+import qrcode
+
+
+def generate_qr_png(data: str) -> bytes:
+    image = qrcode.make(data)
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
