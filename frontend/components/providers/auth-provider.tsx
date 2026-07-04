@@ -15,6 +15,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
+
 import { auth, googleProvider } from "@/firebase/config";
 import type { Member } from "@/types";
 
@@ -55,6 +56,30 @@ const DEMO_MEMBER: Member = {
   ],
 };
 
+/* -------------------------------------------------------------------------- */
+/*                              Allowed Domains                               */
+/* -------------------------------------------------------------------------- */
+
+const ALLOWED_DOMAINS = ["vitstudent.ac.in", "vit.ac.in"];
+
+function isAllowedEmail(email?: string | null): boolean {
+  if (!email) return false;
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  return ALLOWED_DOMAINS.some((domain) =>
+    normalizedEmail.endsWith(`@${domain}`)
+  );
+}
+
+function validateVitEmail(email?: string | null) {
+  if (!isAllowedEmail(email)) {
+    throw new Error(
+      "Only VIT email addresses (@vitstudent.ac.in or @vit.ac.in) are allowed."
+    );
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [member, setMember] = useState<Member | null>(null);
@@ -66,9 +91,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        if (!isAllowedEmail(firebaseUser.email)) {
+          await firebaseSignOut(auth);
+
+          setUser(null);
+          setMember(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(firebaseUser);
+
         setMember({
           ...DEMO_MEMBER,
           uid: firebaseUser.uid,
@@ -77,43 +112,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           photo: firebaseUser.photoURL || undefined,
         });
       } else {
+        setUser(null);
         setMember(null);
       }
+
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
+  /* -------------------------------------------------------------------------- */
+  /*                              Google Sign In                               */
+  /* -------------------------------------------------------------------------- */
+
   const signInWithGoogle = async () => {
     if (!auth) {
       setMember(DEMO_MEMBER);
       return;
     }
-    await signInWithPopup(auth, googleProvider);
+
+    const result = await signInWithPopup(auth, googleProvider);
+
+    validateVitEmail(result.user.email);
+
+    if (!isAllowedEmail(result.user.email)) {
+      await firebaseSignOut(auth);
+    }
   };
 
-  const signInWithEmail = async (email: string, password: string) => {
+  /* -------------------------------------------------------------------------- */
+  /*                               Email Sign In                               */
+  /* -------------------------------------------------------------------------- */
+
+  const signInWithEmail = async (
+    email: string,
+    password: string
+  ) => {
     if (!auth) {
       setMember({ ...DEMO_MEMBER, email });
       return;
     }
+
+    validateVitEmail(email);
+
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const signUpWithEmail = async (email: string, password: string) => {
+  /* -------------------------------------------------------------------------- */
+  /*                               Email Sign Up                               */
+  /* -------------------------------------------------------------------------- */
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string
+  ) => {
     if (!auth) {
       setMember({ ...DEMO_MEMBER, email });
       return;
     }
+
+    validateVitEmail(email);
+
     await createUserWithEmailAndPassword(auth, email, password);
   };
+
+  /* -------------------------------------------------------------------------- */
+  /*                                  Sign Out                                 */
+  /* -------------------------------------------------------------------------- */
 
   const signOut = async () => {
     if (!auth) {
       setMember(null);
       return;
     }
+
     await firebaseSignOut(auth);
   };
 
@@ -136,8 +209,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+
+  if (!context) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 }
