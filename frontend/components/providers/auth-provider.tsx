@@ -22,7 +22,7 @@ import type { Member } from "@/types";
 
 interface AuthContextType {
   user: User | null;
-  member: Member |null;
+  member: Member | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -32,22 +32,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/* -------------------------------------------------------------------------- */
-/*                          Allowed Email Domains                             */
-/* -------------------------------------------------------------------------- */
-
 const ALLOWED_DOMAINS = [
   "vitstudent.ac.in",
   "vit.ac.in",
 ];
 
-function isAllowedEmail(email?: string | null) {
+function isAllowedEmail(email?: string | null): boolean {
   if (!email) return false;
 
-  const normalized = email.trim().toLowerCase();
-
   return ALLOWED_DOMAINS.some((domain) =>
-    normalized.endsWith(`@${domain}`)
+    email.toLowerCase().endsWith(`@${domain}`)
   );
 }
 
@@ -58,10 +52,6 @@ function validateVitEmail(email?: string | null) {
     );
   }
 }
-
-/* -------------------------------------------------------------------------- */
-/*                            Backend Profile API                             */
-/* -------------------------------------------------------------------------- */
 
 async function fetchMemberProfile(firebaseUser: User): Promise<Member | null> {
   try {
@@ -81,8 +71,8 @@ async function fetchMemberProfile(firebaseUser: User): Promise<Member | null> {
     }
 
     return await response.json();
-  } catch (error) {
-    console.error("Failed to fetch member profile:", error);
+  } catch (err) {
+    console.error(err);
     return null;
   }
 }
@@ -102,93 +92,96 @@ export function AuthProvider({
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
+    // IMPORTANT:
+    // firebaseAuth is guaranteed to be non-null.
+    const firebaseAuth = auth;
 
-      if (!firebaseUser) {
-        setUser(null);
-        setMember(null);
+    const unsubscribe = onAuthStateChanged(
+      firebaseAuth,
+      async (firebaseUser) => {
+        setLoading(true);
+
+        if (!firebaseUser) {
+          setUser(null);
+          setMember(null);
+          setLoading(false);
+          return;
+        }
+
+        if (!isAllowedEmail(firebaseUser.email)) {
+          await firebaseSignOut(firebaseAuth);
+
+          alert(
+            "Only VIT email addresses are allowed."
+          );
+
+          setUser(null);
+          setMember(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(firebaseUser);
+
+        const profile = await fetchMemberProfile(firebaseUser);
+
+        if (profile) {
+          setMember(profile);
+        } else {
+          // Temporary fallback until backend is completed
+
+          setMember({
+            id: firebaseUser.uid,
+            uid: firebaseUser.uid,
+            name: firebaseUser.displayName ?? "",
+            email: firebaseUser.email ?? "",
+            photo: firebaseUser.photoURL ?? undefined,
+
+            rollNumber: "",
+            department: "",
+            year: 1,
+
+            role: "member",
+
+            joinedAt: "",
+
+            volunteerHours: 0,
+            attendance: 0,
+
+            achievements: [],
+            registeredEvents: [],
+            bookmarks: [],
+            certificates: [],
+          });
+        }
+
         setLoading(false);
-        return;
       }
-
-      if (!isAllowedEmail(firebaseUser.email)) {
-        await firebaseSignOut(auth);
-
-        setUser(null);
-        setMember(null);
-        setLoading(false);
-
-        alert(
-          "Only VIT email addresses are allowed to access this application."
-        );
-
-        return;
-      }
-
-      setUser(firebaseUser);
-
-      const profile = await fetchMemberProfile(firebaseUser);
-
-      if (profile) {
-        setMember(profile);
-      } else {
-        /*
-         * Temporary fallback until backend profile endpoint is completed.
-         */
-
-        setMember({
-          id: firebaseUser.uid,
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName ?? "",
-          email: firebaseUser.email ?? "",
-          photo: firebaseUser.photoURL ?? undefined,
-
-          rollNumber: "",
-          department: "",
-          year: 0,
-          role: "member",
-
-          joinedAt: "",
-          volunteerHours: 0,
-          attendance: 0,
-
-          achievements: [],
-          registeredEvents: [],
-          bookmarks: [],
-          certificates: [],
-        });
-      }
-
-      setLoading(false);
-    });
+    );
 
     return unsubscribe;
   }, []);
 
-  /* -------------------------------------------------------------------------- */
-  /*                           Google Authentication                            */
-  /* -------------------------------------------------------------------------- */
-
   const signInWithGoogle = async () => {
     if (!auth) return;
 
-    const result = await signInWithPopup(auth, googleProvider);
+    const firebaseAuth = auth;
+
+    const result = await signInWithPopup(
+      firebaseAuth,
+      googleProvider
+    );
 
     validateVitEmail(result.user.email);
 
     if (!isAllowedEmail(result.user.email)) {
-      await firebaseSignOut(auth);
+      await firebaseSignOut(firebaseAuth);
 
       throw new Error(
         "Only VIT email addresses are allowed."
       );
     }
   };
-
-  /* -------------------------------------------------------------------------- */
-  /*                              Email Sign In                                 */
-  /* -------------------------------------------------------------------------- */
 
   const signInWithEmail = async (
     email: string,
@@ -205,10 +198,6 @@ export function AuthProvider({
     );
   };
 
-  /* -------------------------------------------------------------------------- */
-  /*                              Email Sign Up                                 */
-  /* -------------------------------------------------------------------------- */
-
   const signUpWithEmail = async (
     email: string,
     password: string
@@ -223,10 +212,6 @@ export function AuthProvider({
       password
     );
   };
-
-  /* -------------------------------------------------------------------------- */
-  /*                                  Sign Out                                  */
-  /* -------------------------------------------------------------------------- */
 
   const signOut = async () => {
     if (!auth) return;
