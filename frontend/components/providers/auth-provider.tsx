@@ -128,7 +128,6 @@ export function AuthProvider({
         if (profile) {
           setMember(profile);
         } else {
-          // Temporary fallback until backend is completed
 
           setMember({
             id: firebaseUser.uid,
