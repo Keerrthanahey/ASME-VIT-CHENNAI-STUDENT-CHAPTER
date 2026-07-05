@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -21,7 +22,7 @@ import type { Member } from "@/types";
 
 interface AuthContextType {
   user: User | null;
-  member: Member | null;
+  member: Member |null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -31,44 +32,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEMO_MEMBER: Member = {
-  id: "demo-1",
-  uid: "demo-uid",
-  name: "Demo Member",
-  email: "demo@vitstudent.ac.in",
-  rollNumber: "21ME0123",
-  department: "Mechanical Engineering",
-  year: 3,
-  role: "member",
-  joinedAt: "2024-08-01",
-  volunteerHours: 24,
-  attendance: 85,
-  achievements: ["Workshop Certificate", "Event Volunteer"],
-  registeredEvents: ["1", "2"],
-  bookmarks: ["p1"],
-  certificates: [
-    {
-      id: "cert-1",
-      name: "SolidWorks Certification",
-      url: "/certificates/solidworks.pdf",
-      issuedAt: "2025-09-20",
-    },
-  ],
-};
-
 /* -------------------------------------------------------------------------- */
-/*                              Allowed Domains                               */
+/*                          Allowed Email Domains                             */
 /* -------------------------------------------------------------------------- */
 
-const ALLOWED_DOMAINS = ["vitstudent.ac.in", "vit.ac.in"];
+const ALLOWED_DOMAINS = [
+  "vitstudent.ac.in",
+  "vit.ac.in",
+];
 
-function isAllowedEmail(email?: string | null): boolean {
+function isAllowedEmail(email?: string | null) {
   if (!email) return false;
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalized = email.trim().toLowerCase();
 
   return ALLOWED_DOMAINS.some((domain) =>
-    normalizedEmail.endsWith(`@${domain}`)
+    normalized.endsWith(`@${domain}`)
   );
 }
 
@@ -80,7 +59,39 @@ function validateVitEmail(email?: string | null) {
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/* -------------------------------------------------------------------------- */
+/*                            Backend Profile API                             */
+/* -------------------------------------------------------------------------- */
+
+async function fetchMemberProfile(firebaseUser: User): Promise<Member | null> {
+  try {
+    const token = await firebaseUser.getIdToken();
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/me`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch member profile:", error);
+    return null;
+  }
+}
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [user, setUser] = useState<User | null>(null);
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,45 +103,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        if (!isAllowedEmail(firebaseUser.email)) {
-          await firebaseSignOut(auth);
+      setLoading(true);
 
-          setUser(null);
-          setMember(null);
-          setLoading(false);
-          return;
-        }
-
-        setUser(firebaseUser);
-
-        setMember({
-          ...DEMO_MEMBER,
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName || DEMO_MEMBER.name,
-          email: firebaseUser.email || DEMO_MEMBER.email,
-          photo: firebaseUser.photoURL || undefined,
-        });
-      } else {
+      if (!firebaseUser) {
         setUser(null);
         setMember(null);
+        setLoading(false);
+        return;
+      }
+
+      if (!isAllowedEmail(firebaseUser.email)) {
+        await firebaseSignOut(auth);
+
+        setUser(null);
+        setMember(null);
+        setLoading(false);
+
+        alert(
+          "Only VIT email addresses are allowed to access this application."
+        );
+
+        return;
+      }
+
+      setUser(firebaseUser);
+
+      const profile = await fetchMemberProfile(firebaseUser);
+
+      if (profile) {
+        setMember(profile);
+      } else {
+        /*
+         * Temporary fallback until backend profile endpoint is completed.
+         */
+
+        setMember({
+          id: firebaseUser.uid,
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName ?? "",
+          email: firebaseUser.email ?? "",
+          photo: firebaseUser.photoURL ?? undefined,
+
+          rollNumber: "",
+          department: "",
+          year: 0,
+          role: "member",
+
+          joinedAt: "",
+          volunteerHours: 0,
+          attendance: 0,
+
+          achievements: [],
+          registeredEvents: [],
+          bookmarks: [],
+          certificates: [],
+        });
       }
 
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
   /* -------------------------------------------------------------------------- */
-  /*                              Google Sign In                               */
+  /*                           Google Authentication                            */
   /* -------------------------------------------------------------------------- */
 
   const signInWithGoogle = async () => {
-    if (!auth) {
-      setMember(DEMO_MEMBER);
-      return;
-    }
+    if (!auth) return;
 
     const result = await signInWithPopup(auth, googleProvider);
 
@@ -138,56 +179,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!isAllowedEmail(result.user.email)) {
       await firebaseSignOut(auth);
+
+      throw new Error(
+        "Only VIT email addresses are allowed."
+      );
     }
   };
 
   /* -------------------------------------------------------------------------- */
-  /*                               Email Sign In                               */
+  /*                              Email Sign In                                 */
   /* -------------------------------------------------------------------------- */
 
   const signInWithEmail = async (
     email: string,
     password: string
   ) => {
-    if (!auth) {
-      setMember({ ...DEMO_MEMBER, email });
-      return;
-    }
+    if (!auth) return;
 
     validateVitEmail(email);
 
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
   };
 
   /* -------------------------------------------------------------------------- */
-  /*                               Email Sign Up                               */
+  /*                              Email Sign Up                                 */
   /* -------------------------------------------------------------------------- */
 
   const signUpWithEmail = async (
     email: string,
     password: string
   ) => {
-    if (!auth) {
-      setMember({ ...DEMO_MEMBER, email });
-      return;
-    }
+    if (!auth) return;
 
     validateVitEmail(email);
 
-    await createUserWithEmailAndPassword(auth, email, password);
+    await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
   };
 
   /* -------------------------------------------------------------------------- */
-  /*                                  Sign Out                                 */
+  /*                                  Sign Out                                  */
   /* -------------------------------------------------------------------------- */
 
   const signOut = async () => {
-    if (!auth) {
-      setMember(null);
-      return;
-    }
+    if (!auth) return;
 
     await firebaseSignOut(auth);
+
+    setUser(null);
+    setMember(null);
   };
 
   return (
@@ -211,7 +258,9 @@ export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error(
+      "useAuth must be used within an AuthProvider"
+    );
   }
 
   return context;
