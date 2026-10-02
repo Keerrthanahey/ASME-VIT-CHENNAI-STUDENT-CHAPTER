@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -56,12 +57,19 @@ export function Navbar() {
         <nav className="container-custom flex items-center justify-between" aria-label="Main navigation">
           <Link href="/" className="group flex items-center gap-3">
             <motion.div
-              whileHover={{ rotate: 180 }}
-              transition={{ duration: 0.6 }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-asme-blue to-asme-cyan shadow-lg shadow-asme-blue/30"
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md shadow-asme-blue/20 ring-1 ring-black/10 transition-shadow group-hover:shadow-lg group-hover:shadow-asme-blue/40 sm:h-12 sm:w-12"
             >
-              <span className="text-sm font-bold text-white">A</span>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-asme-blue to-asme-cyan opacity-0 blur-md transition-opacity group-hover:opacity-60" />
+              <Image
+                src="/asme-logo.png"
+                alt="ASME VIT Chennai Student Section"
+                width={200}
+                height={200}
+                preload
+                className="h-full w-full object-contain"
+              />
             </motion.div>
             <div className="hidden sm:block">
               <p className="text-sm font-bold leading-tight text-foreground">

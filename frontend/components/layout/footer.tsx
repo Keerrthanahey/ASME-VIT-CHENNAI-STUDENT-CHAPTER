@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   Share2,
@@ -19,8 +20,14 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-asme-blue to-asme-cyan">
-                <span className="text-sm font-bold text-white">A</span>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md shadow-asme-blue/20 ring-1 ring-black/10">
+                <Image
+                  src="/asme-logo.png"
+                  alt="ASME VIT Chennai Student Section"
+                  width={200}
+                  height={200}
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div>
                 <p className="font-bold text-foreground">{SITE_CONFIG.name}</p>
